@@ -1,26 +1,28 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import Phaser from 'phaser'
+import { IonPhaser } from '@ion-phaser/react'
 
-function App() {
+import Scene from './Scene'
+import GlobalStyle from './style/global'
+
+export default function App (): JSX.Element {
+  const game = {
+    type: Phaser.AUTO,
+    width: 1000,
+    height: 1000,
+    physics: {
+      default: 'arcade',
+      arcade: {
+        gravity: { y: 200 }
+      }
+    },
+    scene: Scene
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+    <>
+      <GlobalStyle />
 
-export default App;
+      <IonPhaser game={game} initialize />
+    </>
+  )
+}
