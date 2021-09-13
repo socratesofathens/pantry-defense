@@ -8,9 +8,10 @@ const GlobalStyle = createGlobalStyle`
   }
 
   canvas {
-    margin: 1vmin 0 0 1vmin;
+    margin: 1vmin auto;
     height: 98vmin;
     width: 98vmin;
+    display: block;
   }
 `
 
