@@ -1,47 +1,32 @@
 import Phaser from 'phaser'
+import Mob from './Mob'
 
 export default class Scene extends Phaser.Scene {
-  public r1!: Phaser.GameObjects.Arc
-  public r2!: Phaser.GameObjects.Arc
-  public gun!: Phaser.GameObjects.Rectangle
-  public cover!: Phaser.GameObjects.Rectangle
-  public tower!: Phaser.GameObjects.Container
-  public building!: Phaser.GameObjects.Arc
+  public mobs!: Phaser.Physics.Arcade.Group
+  private r1!: Mob
+  private r2!: Mob
+  private tower!: Phaser.GameObjects.Container
+  private gun!: Phaser.GameObjects.Rectangle
+  private building!: Phaser.GameObjects.Arc
 
   init (): void {
     this.cameras.main.setBackgroundColor('#24252A')
   }
 
   create (): void {
-    this.r1 = this.add.circle(200, 50, 50, 0x6666ff)
+    this.mobs = this.physics.add.group()
+    this.r1 = new Mob({
+      scene: this, x: 250, y: 100, radius: 50, color: 0x6666ff
+    })
+    this.r2 = new Mob({
+      scene: this, x: 400, y: 100, radius: 10, color: 0x9966ff
+    })
+    this.r2.setVelocity({ x: -100, y: 100 })
 
-    this.r2 = this.add.circle(400, 100, 10, 0x9966ff).setStrokeStyle(4, 0xefc53f)
-
-    const mobs = this.physics.add.group()
-    mobs.add(this.r1)
-    mobs.add(this.r2)
-
-    this.physics.add.collider(mobs, mobs)
-
-    this.r1.body.velocity.x = 100
-    this.r1.body.velocity.y = 100
-    if (this.r1.body instanceof Phaser.Physics.Arcade.Body) {
-      this.r1.body.setBounce(1, 1)
-      this.r1.body.setCircle(50)
-      this.r1.body.collideWorldBounds = true
-    }
-
-    this.r2.body.velocity.x = -100
-    this.r2.body.velocity.y = 100
-    if (this.r2.body instanceof Phaser.Physics.Arcade.Body) {
-      this.r2.body.bounce.x = 1
-      this.r2.body.bounce.y = 1
-      this.r2.body.setCircle(10)
-      this.r2.body.collideWorldBounds = true
-    }
+    this.physics.add.collider(this.mobs, this.mobs)
 
     this.building = this.add.circle(0, 0, 30, 0x9966ff).setStrokeStyle(4, 0xefc53f)
-    this.gun = this.add.rectangle(0, 50, 10, 100, 0xFF0000)
+    this.gun = this.add.rectangle(-50, 0, 100, 10, 0xFF0000)
 
     this.tower = this.add.container(500, 500)
     this.tower.setSize(60, 60)
@@ -49,19 +34,40 @@ export default class Scene extends Phaser.Scene {
     this.tower.add(this.building)
     const towers = this.physics.add.staticGroup(this.tower)
     if (this.tower.body instanceof Phaser.Physics.Arcade.StaticBody) {
-      console.log('static test:')
       this.tower.body.setCircle(30)
     }
 
-    this.physics.add.collider(towers, mobs)
+    this.physics.add.collider(towers, this.mobs)
     this.physics.world.enable(this.tower)
   }
 
   update (): void {
-    this.physics.moveTo(this.r1, 500, 500, 100)
-    const radians = Phaser.Math.Angle.Between(this.r2.x, this.r2.y, 500, 500)
-    const angle = Phaser.Math.RAD_TO_DEG * radians
-    const gunAngle = angle + 90
-    this.tower.setAngle(gunAngle)
+    this.r1.moveTo({ x: 500, y: 500, speed: 10 })
+    const mobs = this.mobs.getChildren() as Phaser.GameObjects.Arc[]
+
+    interface Result <T> {
+      value: number
+      element?: T
+    }
+    const closest: Result<Phaser.GameObjects.Arc> = { value: Infinity }
+    mobs.forEach((mob) => {
+      if (mob.body instanceof Phaser.Physics.Arcade.Body) {
+        const distance = Phaser.Math.Distance.BetweenPoints(this.tower, mob.body)
+        const closer = distance < closest.value
+
+        if (closer) {
+          closest.value = distance
+          closest.element = mob
+        }
+      }
+    })
+
+    if (closest.element != null) {
+      const radians = Phaser.Math.Angle.Between(
+        closest.element.x, closest.element.y, this.tower.x, this.tower.y
+      )
+      const angle = Phaser.Math.RAD_TO_DEG * radians
+      this.tower.setAngle(angle)
+    }
   }
 }
