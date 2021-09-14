@@ -3,33 +3,33 @@ import Mob from './Mob'
 
 export default class Scene extends Phaser.Scene {
   public mobs!: Phaser.Physics.Arcade.Group
-  private r1!: Mob
-  private r2!: Mob
+  private queen!: Mob
+  private scout!: Mob
   private tower!: Phaser.GameObjects.Container
   private gun!: Phaser.GameObjects.Rectangle
   private building!: Phaser.GameObjects.Arc
 
   init (): void {
-    this.cameras.main.setBackgroundColor('#24252A')
+    this.cameras.main.setBackgroundColor('#FFFFFF')
   }
 
   create (): void {
     this.mobs = this.physics.add.group()
-    this.r1 = new Mob({
-      scene: this, x: 250, y: 100, radius: 50, color: 0x6666ff
+    this.queen = new Mob({
+      scene: this, x: 250, y: 100, radius: 50, color: 0x000000
     })
-    this.r2 = new Mob({
-      scene: this, x: 400, y: 100, radius: 10, color: 0x9966ff
+    this.scout = new Mob({
+      scene: this, x: 400, y: 100, radius: 10, color: 0x000000
     })
-    this.r2.setVelocity({ x: -100, y: 100 })
+    this.scout.setVelocity({ x: -100, y: 100 })
 
     this.physics.add.collider(this.mobs, this.mobs)
 
-    this.building = this.add.circle(0, 0, 30, 0x9966ff).setStrokeStyle(4, 0xefc53f)
-    this.gun = this.add.rectangle(-50, 0, 100, 10, 0xFF0000)
+    this.building = this.add.circle(0, 0, 10, 0xff0000)
+    this.gun = this.add.rectangle(-10, 0, 20, 3, 0xff0000)
 
     this.tower = this.add.container(500, 500)
-    this.tower.setSize(60, 60)
+    this.tower.setSize(20, 20)
     this.tower.add(this.gun)
     this.tower.add(this.building)
     const towers = this.physics.add.staticGroup(this.tower)
@@ -42,7 +42,7 @@ export default class Scene extends Phaser.Scene {
   }
 
   update (): void {
-    this.r1.moveTo({ x: 500, y: 500, speed: 10 })
+    this.queen.moveTo({ x: 500, y: 500, speed: 10 })
     const mobs = this.mobs.getChildren() as Phaser.GameObjects.Arc[]
 
     interface Result <T> {
