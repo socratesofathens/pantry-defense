@@ -3,17 +3,22 @@ import Mob from './Mob'
 
 export default class Scene extends Phaser.Scene {
   public mobs!: Phaser.Physics.Arcade.Group
+  public towers!: Phaser.Physics.Arcade.StaticGroup
+
+  private building!: Phaser.GameObjects.Arc
+  private graphics!: Phaser.GameObjects.Graphics
+  private gun!: Phaser.GameObjects.Rectangle
   private queen!: Mob
   private scout!: Mob
   private tower!: Phaser.GameObjects.Container
-  private gun!: Phaser.GameObjects.Rectangle
-  private building!: Phaser.GameObjects.Arc
 
   init (): void {
     this.cameras.main.setBackgroundColor('#FFFFFF')
   }
 
   create (): void {
+    this.graphics = this.add.graphics()
+
     this.mobs = this.physics.add.group()
     this.queen = new Mob({
       scene: this, x: 250, y: 100, radius: 50, color: 0x000000
@@ -25,24 +30,28 @@ export default class Scene extends Phaser.Scene {
 
     this.physics.add.collider(this.mobs, this.mobs)
 
-    this.building = this.add.circle(0, 0, 10, 0xff0000)
-    this.gun = this.add.rectangle(-10, 0, 20, 3, 0xff0000)
+    this.towers = this.physics.add.staticGroup()
+    this.physics.add.collider(this.towers, this.mobs)
 
     this.tower = this.add.container(500, 500)
     this.tower.setSize(20, 20)
-    this.tower.add(this.gun)
-    this.tower.add(this.building)
-    const towers = this.physics.add.staticGroup(this.tower)
+
+    this.towers.add(this.tower)
+
     if (this.tower.body instanceof Phaser.Physics.Arcade.StaticBody) {
-      this.tower.body.setCircle(30)
+      this.tower.body.setCircle(10)
     }
 
-    this.physics.add.collider(towers, this.mobs)
-    this.physics.world.enable(this.tower)
+    this.building = this.add.circle(0, 0, 10, 0xff0000)
+    this.tower.add(this.building)
+
+    this.gun = this.add.rectangle(-12, 0, 24, 3, 0xFF0000)
+    this.tower.add(this.gun)
   }
 
   update (): void {
-    this.queen.moveTo({ x: 500, y: 500, speed: 10 })
+    this.queen.moveTo({ x: 500, y: 500, speed: 500 })
+
     const mobs = this.mobs.getChildren() as Phaser.GameObjects.Arc[]
 
     interface Result <T> {
@@ -69,5 +78,21 @@ export default class Scene extends Phaser.Scene {
       const angle = Phaser.Math.RAD_TO_DEG * radians
       this.tower.setAngle(angle)
     }
+
+    const vertical = new Phaser.Geom.Line(
+      500,
+      0,
+      500,
+      1000
+    )
+    this.graphics.strokeLineShape(vertical)
+
+    const horizontal = new Phaser.Geom.Line(
+      0,
+      500,
+      1000,
+      500
+    )
+    this.graphics.strokeLineShape(horizontal)
   }
 }
