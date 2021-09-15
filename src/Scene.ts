@@ -27,6 +27,7 @@ export default class Scene extends Phaser.Scene {
   private tower!: Phaser.GameObjects.Container
   private tempMatrix!: Phaser.GameObjects.Components.TransformMatrix
   private tempParentMatrix!: Phaser.GameObjects.Components.TransformMatrix
+  private experiment!: any
 
   init (): void {
     this.cameras.main.setBackgroundColor('#FFFFFF')
@@ -38,12 +39,12 @@ export default class Scene extends Phaser.Scene {
 
     this.mobs = this.physics.add.group()
     this.queen = new Mob({
-      scene: this, x: 250, y: 100, radius: 50, color: 0x000000
+      scene: this, x: 150, y: 400, radius: 50, color: 0x000000
     })
     this.scout = new Mob({
-      scene: this, x: 400, y: 100, radius: 10, color: 0x000000
+      scene: this, x: 800, y: 300, radius: 10, color: 0x000000
     })
-    this.scout.setVelocity({ x: -100, y: 100 })
+    this.scout.setVelocity({ x: -175, y: 100 })
 
     this.physics.add.collider(this.mobs, this.mobs)
 
@@ -141,15 +142,9 @@ export default class Scene extends Phaser.Scene {
     this.graphics.strokeLineShape(horizontal)
     this.graphics.strokeCircle(500, 500, this.range)
 
-    this.muzzle.getWorldTransformMatrix(this.tempMatrix, this.tempParentMatrix)
-    const decomposed: any = this.tempMatrix.decomposeMatrix()
-    const muzzlePosition = {
-      x: decomposed.translateX, y: decomposed.translateY
-    }
-
     const now = Date.now()
-    const difference = isNaN(this.fireTime) ? 2000 : now - this.fireTime
-    const firing = difference < 1000
+    const fireDifference = isNaN(this.fireTime) ? 2000 : now - this.fireTime
+    const firing = fireDifference < 1000
     if (firing) {
       this.graphics.lineStyle(1, 0xFF0000, 1.0)
       const laser = new Phaser.Geom.Line(
@@ -161,42 +156,71 @@ export default class Scene extends Phaser.Scene {
       this.graphics.strokeLineShape(laser)
     }
 
-    this.queen.moveTo({ x: 500, y: 500, speed: 500 })
+    this.queen.moveTo({ x: 500, y: 0, speed: 10 })
 
     const mobs = this.mobs.getChildren() as Phaser.GameObjects.Arc[]
 
     this.graphics.fillStyle(0x0000FF)
     const closest: Result = { value: Infinity }
     mobs.forEach((mob) => {
-      if (mob.body instanceof Phaser.Physics.Arcade.Body) {
-        const distance = Phaser.Math.Distance.Between(
+      const distance = Phaser.Math.Distance.Between(
+        this.tower.x, this.tower.y, mob.x, mob.y
+      )
+      const close = distance <= this.range
+      if (true) {
+        this.graphics.fillCircle(mob.x, mob.y, 100)
+
+        const radians = Phaser.Math.Angle.Between(
           this.tower.x, this.tower.y, mob.x, mob.y
         )
-        const close = distance <= 500
-        if (close) {
-          this.graphics.fillCircle(mob.x, mob.y, 100)
+        const degrees = Phaser.Math.RadToDeg(radians)
+        const difference = Phaser.Math.Angle.ShortestBetween(
+          degrees, this.tower.angle
+        )
+        const absolute = Math.abs(difference)
+        const closer = absolute < closest.value
 
-          const radians = Phaser.Math.Angle.Between(
-            this.tower.x, this.tower.y, mob.body.x, mob.body.y
-          )
-          const closer = Math.abs(radians) < closest.value
-
-          if (closer) {
-            closest.value = Math.abs(radians)
-            closest.element = mob
-          }
+        if (closer) {
+          closest.value = absolute
+          closest.element = mob
         }
       }
     })
+    mobs.forEach(mob => {
+      const radians = Phaser.Math.Angle.Between(
+        this.tower.x, this.tower.y, mob.x, mob.y
+      )
+      console.log('radians test:', radians)
+      const degrees = Phaser.Math.RadToDeg(radians)
+      console.log('degrees test:', degrees)
+      console.log('this.tower.angle test:', this.tower.angle)
+      const difference = Phaser.Math.Angle.ShortestBetween(
+        degrees, this.tower.angle
+      )
+      console.log('difference test:', difference)
+
+      console.log('id test:', mob.radius)
+    }, this)
+
+    console.log('closest test:', JSON.parse(JSON.stringify(closest)))
+
+    this.experiment = closest.element
 
     if (closest.element != null) {
       this.graphics.fillStyle(0x00FF00)
-      if (this.firePosition != null) {
-        this.graphics.fillCircle(closest.element.x, closest.element.y, 100)
-      }
+      this.graphics.fillCircle(closest.element.x, closest.element.y, 90)
+
       const radians = Phaser.Math.Angle.Between(
         this.tower.x, this.tower.y, closest.element.x, closest.element.y
       )
+      const degrees = Phaser.Math.RadToDeg(radians)
+      const difference = Phaser.Math.Angle.ShortestBetween(
+        degrees, this.tower.angle
+      )
+      const absolute = Math.abs(difference)
+      console.log('closest absolute test:', absolute)
+
+      console.log('closest id test:', closest.element.radius)
 
       const rotated = Phaser.Math.Angle.RotateTo(
         this.tower.rotation,
@@ -219,13 +243,13 @@ export default class Scene extends Phaser.Scene {
         tracer, this.tower.x, this.tower.y, this.tower.rotation, this.range
       )
 
-      const recharged = difference > 1000
+      const recharged = fireDifference > 1000
       if (recharged) {
         this.graphics.lineStyle(1, 0x00FF00, 1.0)
         this.graphics.strokeLineShape(tracer)
 
         const target: Result = { value: Infinity }
-        let point: any
+        let position: any = null
         mobs.forEach((mob) => {
           const circle = new Phaser.Geom.Circle(
             mob.x, mob.y, mob.radius
@@ -237,7 +261,7 @@ export default class Scene extends Phaser.Scene {
           )
 
           if (intersection) {
-            point = out
+            position = out
             const distance = Phaser.Math.Distance.Between(
               this.tower.x, this.tower.y, mob.x, mob.y
             )
@@ -250,11 +274,18 @@ export default class Scene extends Phaser.Scene {
           }
         })
 
-        if (target.element != null) {
+        if (target.element != null && position != null) {
+          this.muzzle.getWorldTransformMatrix(
+            this.tempMatrix, this.tempParentMatrix
+          )
+          const decomposed: any = this.tempMatrix.decomposeMatrix()
+          const muzzle = {
+            x: decomposed.translateX, y: decomposed.translateY
+          }
           this.fire({
             target: target.element,
-            position: point,
-            muzzle: muzzlePosition
+            position,
+            muzzle
           })
         }
 
