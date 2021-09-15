@@ -17,12 +17,16 @@ export default class Scene extends Phaser.Scene {
   private building!: Phaser.GameObjects.Arc
   private fireTime!: number
   private firePosition!: Position
+  private fireMuzzle!: Position
   private graphics!: Phaser.GameObjects.Graphics
   private gun!: Phaser.GameObjects.Rectangle
   private queen!: Mob
   private range!: number
   private scout!: Mob
+  private muzzle!: Phaser.GameObjects.Arc
   private tower!: Phaser.GameObjects.Container
+  private tempMatrix!: Phaser.GameObjects.Components.TransformMatrix
+  private tempParentMatrix!: Phaser.GameObjects.Components.TransformMatrix
 
   init (): void {
     this.cameras.main.setBackgroundColor('#FFFFFF')
@@ -60,14 +64,22 @@ export default class Scene extends Phaser.Scene {
 
     this.gun = this.add.rectangle(12, 0, 24, 3, 0xFF0000)
     this.tower.add(this.gun)
+
+    this.muzzle = this.add.circle(24, 0)
+    this.tower.add(this.muzzle)
+
+    this.tempMatrix = new Phaser.GameObjects.Components.TransformMatrix()
+    this.tempParentMatrix = new Phaser.GameObjects.Components.TransformMatrix()
   }
 
-  fire ({ target, position }: {
+  fire ({ target, position, muzzle }: {
     target: Phaser.GameObjects.Arc
     position: Position
+    muzzle: Position
   }): void {
     this.fireTime = Date.now()
     this.firePosition = position
+    this.fireMuzzle = muzzle
 
     target.destroy()
 
@@ -112,13 +124,6 @@ export default class Scene extends Phaser.Scene {
   update (): void {
     this.graphics.clear()
 
-    this.graphics.fillStyle(0xFF0000)
-    if (this.firePosition != null) {
-      this.graphics.fillCircle(this.firePosition.x, this.firePosition.y, 20)
-    }
-
-    this.graphics.lineStyle(1, 0x000000, 1.0)
-
     const vertical = new Phaser.Geom.Line(
       500,
       0,
@@ -134,11 +139,33 @@ export default class Scene extends Phaser.Scene {
       500
     )
     this.graphics.strokeLineShape(horizontal)
+    this.graphics.strokeCircle(500, 500, this.range)
+
+    this.muzzle.getWorldTransformMatrix(this.tempMatrix, this.tempParentMatrix)
+    const decomposed: any = this.tempMatrix.decomposeMatrix()
+    const muzzlePosition = {
+      x: decomposed.translateX, y: decomposed.translateY
+    }
+
+    const now = Date.now()
+    const difference = isNaN(this.fireTime) ? 2000 : now - this.fireTime
+    const firing = difference < 1000
+    if (firing) {
+      this.graphics.lineStyle(1, 0xFF0000, 1.0)
+      const laser = new Phaser.Geom.Line(
+        this.fireMuzzle.x,
+        this.fireMuzzle.y,
+        this.firePosition.x,
+        this.firePosition.y
+      )
+      this.graphics.strokeLineShape(laser)
+    }
 
     this.queen.moveTo({ x: 500, y: 500, speed: 500 })
 
     const mobs = this.mobs.getChildren() as Phaser.GameObjects.Arc[]
 
+    this.graphics.fillStyle(0x0000FF)
     const closest: Result = { value: Infinity }
     mobs.forEach((mob) => {
       if (mob.body instanceof Phaser.Physics.Arcade.Body) {
@@ -147,35 +174,26 @@ export default class Scene extends Phaser.Scene {
         )
         const close = distance <= 500
         if (close) {
+          this.graphics.fillCircle(mob.x, mob.y, 100)
+
           const radians = Phaser.Math.Angle.Between(
             this.tower.x, this.tower.y, mob.body.x, mob.body.y
           )
-          const closer = radians < closest.value
+          const closer = Math.abs(radians) < closest.value
 
           if (closer) {
-            closest.value = radians
+            closest.value = Math.abs(radians)
             closest.element = mob
           }
         }
       }
     })
 
-    const now = Date.now()
-    const difference = isNaN(this.fireTime) ? 2000 : now - this.fireTime
-    const firing = difference < 1000
-    if (firing) {
-      console.log('this.firePosition test:', this.firePosition)
-      this.graphics.lineStyle(1, 0xFF0000, 1.0)
-      const laser = new Phaser.Geom.Line(
-        this.tower.x,
-        this.tower.y,
-        this.firePosition.x,
-        this.firePosition.y
-      )
-      this.graphics.strokeLineShape(laser)
-    }
-
     if (closest.element != null) {
+      this.graphics.fillStyle(0x00FF00)
+      if (this.firePosition != null) {
+        this.graphics.fillCircle(closest.element.x, closest.element.y, 100)
+      }
       const radians = Phaser.Math.Angle.Between(
         this.tower.x, this.tower.y, closest.element.x, closest.element.y
       )
@@ -235,7 +253,8 @@ export default class Scene extends Phaser.Scene {
         if (target.element != null) {
           this.fire({
             target: target.element,
-            position: point
+            position: point,
+            muzzle: muzzlePosition
           })
         }
 
@@ -243,6 +262,7 @@ export default class Scene extends Phaser.Scene {
       } else {
         this.graphics.lineStyle(1, 0x00FFFF, 1.0)
       }
+
       this.graphics.strokeLineShape(tracer)
     }
   }
