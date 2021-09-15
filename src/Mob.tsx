@@ -33,7 +33,9 @@ export default class Mob {
     y: number
     speed: number
   }): void {
-    this.scene.physics.moveTo(this.shape, x, y, speed)
+    if (this.shape.body != null) {
+      this.scene.physics.moveTo(this.shape, x, y, speed)
+    }
   }
 
   setVelocity ({ x, y }: Position): void {

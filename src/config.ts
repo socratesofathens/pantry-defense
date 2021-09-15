@@ -1,7 +1,7 @@
 import Scene from './Scene'
 
 const config = {
-  type: Phaser.AUTO,
+  type: Phaser.CANVAS,
   width: 1000,
   height: 1000,
   physics: {
