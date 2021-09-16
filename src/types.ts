@@ -3,7 +3,7 @@ export interface Position {
   y: number
 }
 
-export interface Result {
-  value: number
+export interface Result <T> {
+  value: T
   element?: Phaser.GameObjects.Arc
 }
