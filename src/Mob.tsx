@@ -1,5 +1,4 @@
 import Scene from './Scene'
-import { Position } from './types'
 
 export default class Mob {
   readonly scene: Scene
@@ -18,13 +17,14 @@ export default class Mob {
     this.x = x
     this.y = y
 
-    this.shape = this.scene.add.circle(x, y, radius, color)
+    this.shape = this.scene.createCircle({ x, y, radius, color })
     this.shape.setStrokeStyle(2, 0x000000)
     this.scene.mobs.add(this.shape)
 
     if (this.shape.body instanceof Phaser.Physics.Arcade.Body) {
+      const realRadius = this.scene.getReal(radius)
       this.shape.body.setBounce(1, 1)
-      this.shape.body.setCircle(radius)
+      this.shape.body.setCircle(realRadius)
       this.shape.body.collideWorldBounds = true
     }
   }
@@ -35,12 +35,22 @@ export default class Mob {
     speed: number
   }): void {
     if (this.shape.body != null) {
-      this.scene.physics.moveTo(this.shape, x, y, speed)
+      const realX = this.scene.getReal(x)
+      const realY = this.scene.getReal(y)
+      const realSpeed = this.scene.getReal(speed)
+
+      this.scene.physics.moveTo(this.shape, realX, realY, realSpeed)
     }
   }
 
-  setVelocity ({ x, y }: Position): void {
-    this.shape.body.velocity.x = x
-    this.shape.body.velocity.y = y
+  setVelocity ({ x, y }: {
+    x: number
+    y: number
+  }): void {
+    const realX = this.scene.getReal(x)
+    const realY = this.scene.getReal(y)
+
+    this.shape.body.velocity.x = realX
+    this.shape.body.velocity.y = realY
   }
 }

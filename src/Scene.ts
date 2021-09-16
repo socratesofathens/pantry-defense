@@ -1,6 +1,7 @@
 import Mob from './Mob'
 import { Position, Result } from './types'
 import Phaser from 'phaser'
+import { HEIGHT, RATIO } from './config'
 
 export default class Scene extends Phaser.Scene {
   public mobs!: Phaser.Physics.Arcade.Group
@@ -15,11 +16,14 @@ export default class Scene extends Phaser.Scene {
   private gun!: Phaser.GameObjects.Rectangle
   private queen!: Mob
   private range!: number
-  private readonly scout!: Mob
+  private realRange!: number
+  private REAL_SIZE!: number
   private muzzle!: Phaser.GameObjects.Arc
   private tower!: Phaser.GameObjects.Container
   private tempMatrix!: Phaser.GameObjects.Components.TransformMatrix
   private tempParentMatrix!: Phaser.GameObjects.Components.TransformMatrix
+
+  readonly SIZE = 0.01
 
   init (): void {
     this.cameras.main.setBackgroundColor('#FFFFFF')
@@ -27,46 +31,48 @@ export default class Scene extends Phaser.Scene {
 
   create (): void {
     this.graphics = this.add.graphics()
-    this.range = 500
+    this.range = 0.5
+    this.realRange = this.getReal(this.range)
 
     this.mobs = this.physics.add.group()
     this.queen = new Mob({
-      scene: this, x: 150, y: 400, radius: 50, color: 0x000000
+      scene: this, x: 0.150, y: 0.4, radius: 0.05, color: 0x000000
     })
     const worker = this.createWorker()
-    worker.setVelocity({ x: -175, y: 100 })
+    worker.setVelocity({ x: -0.175, y: 0.1 })
 
     this.physics.add.collider(this.mobs, this.mobs)
+
+    this.REAL_SIZE = this.getReal(this.SIZE)
 
     this.towers = this.physics.add.staticGroup()
     this.physics.add.collider(this.towers, this.mobs)
 
-    this.tower = this.add.container(500, 500)
-    this.tower.setSize(20, 20)
+    this.tower = this.createContainer({ x: 0.5, y: 0.5 })
+    const doubleSize = this.REAL_SIZE * 2
+    this.tower.setSize(doubleSize, doubleSize)
 
     this.towers.add(this.tower)
 
     if (this.tower.body instanceof Phaser.Physics.Arcade.StaticBody) {
-      this.tower.body.setCircle(10)
+      this.tower.body.setCircle(this.REAL_SIZE)
     }
 
-    this.building = this.add.circle(0, 0, 10, 0xff0000)
+    this.building = this.createCircle({
+      x: 0, y: 0, radius: this.SIZE, color: 0xff0000
+    })
     this.tower.add(this.building)
 
-    this.gun = this.add.rectangle(12, 0, 24, 3, 0xFF0000)
+    this.gun = this.createRectangle({
+      x: 0.012, y: 0, width: 0.024, height: 0.003, color: 0xFF0000
+    })
     this.tower.add(this.gun)
 
-    this.muzzle = this.add.circle(24, 0)
+    this.muzzle = this.createCircle({ x: 0.024, y: 0 })
     this.tower.add(this.muzzle)
 
     this.tempMatrix = new Phaser.GameObjects.Components.TransformMatrix()
     this.tempParentMatrix = new Phaser.GameObjects.Components.TransformMatrix()
-  }
-
-  createLine ({ a, b } = { a: this.ORIGIN, b: this.ORIGIN }): Phaser.Geom.Line {
-    const line = new Phaser.Geom.Line(a.x, a.y, b.x, b.y)
-
-    return line
   }
 
   attack ({ now, tracer, enemies }: {
@@ -85,15 +91,82 @@ export default class Scene extends Phaser.Scene {
     }
   }
 
-  createRandom (range: number): number {
-    const random = Math.random()
-    const scaled = random * range
-    const rounded = Math.floor(scaled)
+  checkReal <T> ({ value, real, getter }: {
+    value?: T
+    real?: T
+    getter: (value: T) => T
+  }): T {
+    if (real != null) {
+      return real
+    }
 
-    return rounded
+    if (value == null) {
+      throw new Error('Nothing is real')
+    }
+
+    real = getter(value)
+
+    return real
   }
 
-  createRange (step: number, _maximum = 1000): number[] {
+  checkRealNumber ({ value, real }: {
+    value?: number
+    real?: number
+  }): number {
+    return this.checkReal({ value, real, getter: this.getReal })
+  }
+
+  checkRealPosition ({ value, real }: {
+    value?: Position
+    real?: Position
+  }): Position {
+    return this.checkReal({ value, real, getter: this.getRealPosition })
+  }
+
+  createContainer ({ x, y }: {
+    x: number
+    y: number
+  }): Phaser.GameObjects.Container {
+    const position = { x, y }
+    const realPosition = this.getRealPosition(position)
+    const container = this.add.container(realPosition.x, realPosition.y)
+
+    return container
+  }
+
+  createCircle ({ x, y, radius, color }: {
+    x: number
+    y: number
+    radius?: number
+    color?: number
+  }): Phaser.GameObjects.Arc {
+    const realX = this.getReal(x)
+    const realY = this.getReal(y)
+
+    if (radius != null) {
+      radius = this.getReal(radius)
+    }
+
+    const circle = this.add.circle(realX, realY, radius, color)
+
+    return circle
+  }
+
+  createLine ({ a, b, realA, realB }: {
+    a?: Position
+    b?: Position
+    realA?: Position
+    realB?: Position
+  } = { realA: this.ORIGIN, realB: this.ORIGIN }): Phaser.Geom.Line {
+    realA = this.checkRealPosition({ value: a, real: realA })
+    realB = this.checkRealPosition({ value: b, real: realB })
+
+    const line = new Phaser.Geom.Line(realA.x, realA.y, realB.x, realB.y)
+
+    return line
+  }
+
+  createRange (step: number, _maximum = 1): number[] {
     const values = []
 
     let current = step
@@ -108,27 +181,44 @@ export default class Scene extends Phaser.Scene {
     return values
   }
 
-  createRangeHorizontal (step: number): number[] {
-    const values = this.createRange(step, 1000)
+  createRangeRatio (step: number): number[] {
+    const values = this.createRange(step, RATIO)
 
     return values
   }
 
+  createRectangle ({ x, y, width, height, color }: {
+    x: number
+    y: number
+    width: number
+    height: number
+    color: number
+  }): Phaser.GameObjects.Rectangle {
+    const realX = this.getReal(x)
+    const realY = this.getReal(y)
+    const realWidth = this.getReal(width)
+    const realHeight = this.getReal(height)
+
+    const rectangle = this.add.rectangle(
+      realX, realY, realWidth, realHeight, color
+    )
+
+    return rectangle
+  }
+
   createWorker (): Mob {
-    const x = this.createRandom(1000)
-    const y = this.createRandom(1000)
+    const x = Math.random()
+    const y = Math.random()
 
     const worker = new Mob({
-      scene: this, x, y, radius: 10, color: 0x000000
+      scene: this, x, y, radius: 0.01, color: 0x000000
     })
 
-    const dX = this.createRandom(200)
-    const ddX = this.createRandom(2) - 0.5
-    const vX = dX * ddX
+    const dX = Math.random()
+    const vX = (dX / 3) + 0.1
 
-    const dY = this.createRandom(200)
-    const ddY = this.createRandom(2) - 0.5
-    const vY = dY * ddY
+    const dY = Math.random()
+    const vY = (dY / 3) + 0.1
 
     worker.setVelocity({ x: vX, y: vY })
 
@@ -139,10 +229,25 @@ export default class Scene extends Phaser.Scene {
     const tracer = this.createLine()
 
     Phaser.Geom.Line.SetToAngle(
-      tracer, this.tower.x, this.tower.y, this.tower.rotation, this.range
+      tracer, this.tower.x, this.tower.y, this.tower.rotation, this.realRange
     )
 
     return tracer
+  }
+
+  fillCircle ({ x, y, radius, realX, realY, realRadius }: {
+    x?: number
+    y?: number
+    radius?: number
+    realX?: number
+    realY?: number
+    realRadius?: number
+  }): void {
+    realX = this.checkRealNumber({ value: x, real: realX })
+    realY = this.checkRealNumber({ value: y, real: realY })
+    realRadius = this.checkRealNumber({ value: radius, real: realRadius })
+
+    this.graphics.fillCircle(realX, realY, realRadius)
   }
 
   fire ({ now, target, position }: {
@@ -166,7 +271,7 @@ export default class Scene extends Phaser.Scene {
     this.createWorker()
 
     const length = this.mobs.getLength()
-    if (length < 3) {
+    if (length < 10) {
       this.createWorker()
     }
   }
@@ -195,12 +300,12 @@ export default class Scene extends Phaser.Scene {
         this.tower.x, this.tower.y, target.x, target.y
       )
 
-      const far = distance > this.range
+      const far = distance > this.realRange
       if (far) {
         return
       }
 
-      this.graphics.fillCircle(target.x, target.y, 100)
+      this.fillCircle({ realX: target.x, realY: target.y, radius: 0.1 })
 
       const radians = Phaser.Math.Angle.Between(
         this.tower.x, this.tower.y, target.x, target.y
@@ -219,6 +324,21 @@ export default class Scene extends Phaser.Scene {
     })
 
     return closest.element
+  }
+
+  getReal = (value: number): number => {
+    return value * HEIGHT
+  }
+
+  getRealPosition = ({ x, y }: {
+    x: number
+    y: number
+  }): Position => {
+    const realX = this.getReal(x)
+    const realY = this.getReal(y)
+    const position = { x: realX, y: realY }
+
+    return position
   }
 
   getTarget ({ line, targets }: {
@@ -255,25 +375,27 @@ export default class Scene extends Phaser.Scene {
     return target
   }
 
-  strokeLine ({ a, b }: {
-    a: Position
-    b: Position
+  strokeLine ({ a, b, realA, realB }: {
+    a?: Position
+    b?: Position
+    realA?: Position
+    realB?: Position
   }): void {
-    const line = this.createLine({ a, b })
+    const line = this.createLine({ a, b, realA, realB })
 
     this.graphics.strokeLineShape(line)
   }
 
   strokeVertical (x: number): void {
     const a = { x, y: 0 }
-    const b = { x, y: 1000 }
+    const b = { x, y: 1 }
 
     this.strokeLine({ a, b })
   }
 
   strokeHorizontal (y: number): void {
     const a = { x: 0, y }
-    const b = { x: 1000, y }
+    const b = { x: RATIO, y }
 
     this.strokeLine({ a, b })
   }
@@ -281,13 +403,13 @@ export default class Scene extends Phaser.Scene {
   update (): void {
     this.graphics.clear()
 
-    const vertical = this.createRange(200)
+    const vertical = this.createRangeRatio(0.2)
     vertical.forEach(x => this.strokeVertical(x))
 
-    const horizontal = this.createRangeHorizontal(200)
+    const horizontal = this.createRange(0.2)
     horizontal.forEach(y => this.strokeHorizontal(y))
 
-    this.queen.moveTo({ x: 500, y: 500, speed: 100 })
+    this.queen.moveTo({ x: 0.5, y: 0.5, speed: 0.01 })
 
     const now = Date.now()
 
@@ -299,9 +421,7 @@ export default class Scene extends Phaser.Scene {
     const firing = fireDifference < 1000
     if (firing) {
       this.graphics.lineStyle(1, 0xFF0000, 1.0)
-      const laser = this.createLine({ a: this.fireMuzzle, b: this.fireTarget })
-
-      this.graphics.strokeLineShape(laser)
+      this.strokeLine({ realA: this.fireMuzzle, realB: this.fireTarget })
     }
     const mobs = this.mobs.getChildren() as Phaser.GameObjects.Arc[]
 
@@ -321,7 +441,7 @@ export default class Scene extends Phaser.Scene {
 
     if (nearest != null) {
       this.graphics.fillStyle(0x00FF00)
-      this.graphics.fillCircle(nearest.x, nearest.y, 90)
+      this.fillCircle({ realX: nearest.x, realY: nearest.y, radius: 0.09 })
 
       const radians = Phaser.Math.Angle.Between(
         this.tower.x, this.tower.y, nearest.x, nearest.y
