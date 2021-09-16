@@ -19,6 +19,7 @@ export default class Mob {
     this.y = y
 
     this.shape = this.scene.add.circle(x, y, radius, color)
+    this.shape.setStrokeStyle(2, 0x000000)
     this.scene.mobs.add(this.shape)
 
     if (this.shape.body instanceof Phaser.Physics.Arcade.Body) {
